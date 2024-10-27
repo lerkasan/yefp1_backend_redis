@@ -1,0 +1,80 @@
+services:
+  backend_redis:
+    # image: ${AWS_ACCOUNT_ID:-latest}.dkr.ecr.us-east-1.amazonaws.com/yefp1/backend-redis:${BACKEND_REDIS_TAG:-latest}
+    container_name: backend_redis
+    build: 
+      context: .
+    restart: unless-stopped
+    user: appuser
+    cap_drop:
+      - ALL
+    security_opt:
+      - "no-new-privileges=true"
+    read_only: true
+    tmpfs:
+      - /tmp
+    # env_file:
+    #   - .backend.env
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
+      - DEBUG=${DEBUG}
+      - REDIS_DB=${REDIS_DB}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+    ports:
+      - "9000:9000"
+    networks:
+       - app
+       - redis
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9000/test_connection/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7.4.1-alpine3.20@sha256:de13e74e14b98eb96bdf886791ae47686c3c5d29f9d5f85ea55206843e3fce26
+    container_name: redis
+    restart: unless-stopped
+    user: redis
+    cap_drop:
+      - ALL
+    security_opt:
+      - "no-new-privileges=true"
+    read_only: true
+    tmpfs:
+      - /tmp
+    environment:
+      - REDIS_DB=${REDIS_DB}
+      - REDIS_PASSWORD_FILE=/run/secrets/redis_password
+      - REDIS_LOG_LEVEL=${REDIS_LOG_LEVEL}
+    secrets:
+      - redis_password
+    command: /bin/sh -c "redis-server --requirepass $(cat $$REDIS_PASSWORD_FILE) --loglevel $$REDIS_LOG_LEVEL --hide-user-data-from-log yes"
+    networks:
+      - redis
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+    redis_data:
+
+secrets:
+  redis_password:
+    file: ../secrets/backend_redis/redis_password
+
+networks:
+    app:
+    redis:
