@@ -20,10 +20,10 @@ COMMIT_SHA=$(aws deploy get-deployment --deployment-id "$DEPLOYMENT_ID" --query 
 
 BACKEND_REDIS_TAG="${COMMIT_SHA:-latest}"
 
-REDIS_HOST=$(aws ssm get-parameter --region "$AWS_REGION" --name "${PROJECT_NAME}_redis_host" --with-decryption --query Parameter.Value --output text)
-REDIS_PORT=$(aws ssm get-parameter --region "$AWS_REGION" --name "${PROJECT_NAME}_redis_port" --with-decryption --query Parameter.Value --output text)
-REDIS_DB=$(aws ssm get-parameter --region "$AWS_REGION" --name "${PROJECT_NAME}_redis_db" --with-decryption --query Parameter.Value --output text)
-REDIS_PASSWORD=$(aws ssm get-parameter --region "$AWS_REGION" --name "${PROJECT_NAME}_redis_password" --with-decryption --query Parameter.Value --output text)
+REDIS_HOST=$(aws ssm get-parameter --region "$AWS_REGION" --name "${PROJECT_NAME}_cache_host" --with-decryption --query Parameter.Value --output text)
+REDIS_PORT=$(aws ssm get-parameter --region "$AWS_REGION" --name "${PROJECT_NAME}_cache_port" --with-decryption --query Parameter.Value --output text)
+REDIS_DB=$(aws ssm get-parameter --region "$AWS_REGION" --name "${PROJECT_NAME}_cache_db" --with-decryption --query Parameter.Value --output text)
+REDIS_PASSWORD=$(aws ssm get-parameter --region "$AWS_REGION" --name "${PROJECT_NAME}_cache_password" --with-decryption --query Parameter.Value --output text)
 SECRET_KEY=$(aws ssm get-parameter --region "$AWS_REGION" --name "${PROJECT_NAME}_cache_secret_key" --with-decryption --query Parameter.Value --output text)
 
 export REDIS_HOST="$REDIS_HOST"
