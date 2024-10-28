@@ -1,0 +1,27 @@
+version: 0.0
+os: linux
+files:
+  - source: compose.yml
+    destination: /home/ubuntu/backend_redis/
+permissions:
+  - object: /home/ubuntu/backend_redis/
+    pattern: "**"
+    owner: ubuntu
+    group: ubuntu
+hooks:
+  BeforeInstall:
+    - location: aws/scripts/before-install.sh
+      timeout: 300
+      runas: root
+  ApplicationStart:
+    - location: aws/scripts/application-start.sh
+      timeout: 300
+      runas: ubuntu
+  ApplicationStop:
+    - location: aws/scripts/application-stop.sh
+      timeout: 300
+      runas: ubuntu
+  ValidateService:
+    - location: aws/scripts/validate-service.sh
+      timeout: 300
+      runas: ubuntu
