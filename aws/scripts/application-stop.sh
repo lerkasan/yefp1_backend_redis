@@ -1,5 +1,5 @@
 #!/bin/bash
-set -xe
+set -eou pipefail
 
 APP_DIR=/home/ubuntu/backend_redis
 

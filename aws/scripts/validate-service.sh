@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x
+set -eou pipefail
 
 NUMBER_OF_ATTEMPTS=10
 SLEEP_TIME=3

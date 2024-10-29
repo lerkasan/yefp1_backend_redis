@@ -1,12 +1,11 @@
 #!/bin/bash
-set -xe
+set -eou pipefail
 
 PROJECT_NAME="yefp1"
 APPLICATION_NAME="backend_redis"
 DEPLOYMENT_GROUP_NAME="stage_${APPLICATION_NAME}"
 APP_DIR="/home/ubuntu/${APPLICATION_NAME}"
 
-CORS_ALLOWED_ORIGINS="http://localhost"
 DEBUG=False
 
 AWS_REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
@@ -25,6 +24,7 @@ REDIS_PORT=$(aws ssm get-parameter --region "$AWS_REGION" --name "${PROJECT_NAME
 REDIS_DB=$(aws ssm get-parameter --region "$AWS_REGION" --name "${PROJECT_NAME}_cache_db" --with-decryption --query Parameter.Value --output text)
 REDIS_PASSWORD=$(aws ssm get-parameter --region "$AWS_REGION" --name "${PROJECT_NAME}_cache_password" --with-decryption --query Parameter.Value --output text)
 SECRET_KEY=$(aws ssm get-parameter --region "$AWS_REGION" --name "${PROJECT_NAME}_cache_secret_key" --with-decryption --query Parameter.Value --output text)
+CORS_ALLOWED_ORIGINS=$(aws ssm get-parameter --region "$AWS_REGION" --name "${PROJECT_NAME}_cors_allowed_origins" --with-decryption --query Parameter.Value --output text)
 
 export REDIS_HOST="$REDIS_HOST"
 export REDIS_PORT="${REDIS_PORT:-6379}"
@@ -32,7 +32,7 @@ export REDIS_DB="$REDIS_DB"
 export REDIS_PASSWORD="$REDIS_PASSWORD"
 
 export CACHE_SECRET_KEY="$SECRET_KEY"
-export CACHE_CORS_ALLOWED_ORIGINS="$CORS_ALLOWED_ORIGINS"
+export CACHE_CORS_ALLOWED_ORIGINS="${CORS_ALLOWED_ORIGINS:-http://localhost}"
 export CACHE_DEBUG="${DEBUG:-False}"
 
 export BACKEND_REDIS_TAG="${BACKEND_REDIS_TAG:-latest}"
