@@ -1,7 +1,7 @@
 services:
   backend_redis:
-    # image: ${AWS_ACCOUNT_ID:-latest}.dkr.ecr.us-east-1.amazonaws.com/yefp1/backend-redis:${BACKEND_REDIS_TAG:-latest}
-    container_name: backend_redis
+    # image: ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/yefp1/backend-redis:${BACKEND_REDIS_TAG:-latest}
+    # container_name: backend_redis
     build: 
       context: .
     restart: unless-stopped
@@ -16,13 +16,15 @@ services:
     # env_file:
     #   - .backend.env
     environment:
-      - SECRET_KEY=${SECRET_KEY}
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
       - DEBUG=${DEBUG}
       - REDIS_DB=${REDIS_DB}
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
+      - REDIS_SSL_ENABLED=False
+    secrets:
+      - redis_password
+      - secret_key
     ports:
       - "9000:9000"
     networks:
@@ -74,6 +76,8 @@ volumes:
 secrets:
   redis_password:
     file: ../secrets/backend_redis/redis_password
+  secret_key:
+    file: ../secrets/backend_redis/django_secret_key
 
 networks:
     app:

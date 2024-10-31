@@ -5,7 +5,10 @@ from django.middleware.common import CommonMiddleware
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.environ.get('SECRET_KEY', 'your-default-secret-key')
+# SECRET_KEY = os.environ.get('SECRET_KEY', 'your-default-secret-key')
+
+with open('/run/secrets/secret_key') as f:
+    SECRET_KEY = f.read().strip()
 
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
@@ -67,10 +70,15 @@ TEMPLATES = [
 WSGI_APPLICATION = 'backend_redis.wsgi.application'
 
 # Redis settings
+REDIS_SSL_ENABLED = os.environ.get('REDIS_SSL_ENABLED', 'True') == 'True'
 REDIS_HOST = os.environ.get('REDIS_HOST')
 REDIS_PORT = os.environ.get('REDIS_PORT')
 REDIS_DB = os.environ.get('REDIS_DB')
-REDIS_PASSWORD = os.environ.get('REDIS_PASSWORD')
+# REDIS_PASSWORD = os.environ.get('REDIS_PASSWORD')
+
+with open('/run/secrets/redis_password') as f:
+    REDIS_PASSWORD = f.read().strip()
+    
 # Database
 DATABASES = {
     'default': {

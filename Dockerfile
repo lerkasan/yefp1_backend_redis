@@ -46,12 +46,15 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 COPY --from=builder /opt/venv /opt/venv
 COPY --from=builder --chown="$APP_USER":"$APP_GROUP" "$WORK_DIR" "$WORK_DIR"
+COPY docker-entrypoint.sh "$WORK_DIR"
 
 RUN addgroup "$APP_GROUP" && \
-  adduser --disabled-password --shell /usr/sbin/nologin -G "$APP_GROUP" "$APP_USER"
+  adduser --disabled-password --shell /usr/sbin/nologin -G "$APP_GROUP" "$APP_USER" && \
+  chmod +x "$WORK_DIR/docker-entrypoint.sh" && \
+  chown "$APP_USER":"$APP_GROUP" "$WORK_DIR/docker-entrypoint.sh"
 
 USER "$APP_USER"
 
 EXPOSE 9000
 
-CMD [ "gunicorn", "backend_redis.wsgi:application", "--bind", "0.0.0.0:9000" ]
+ENTRYPOINT [ "/app/docker-entrypoint.sh" ]

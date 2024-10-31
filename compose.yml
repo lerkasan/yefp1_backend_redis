@@ -13,13 +13,15 @@ services:
     # env_file:
     #   - .backend.env
     environment:
-      - SECRET_KEY=${CACHE_SECRET_KEY}
       - CORS_ALLOWED_ORIGINS=${CACHE_CORS_ALLOWED_ORIGINS}
       - DEBUG=${CACHE_DEBUG}
       - REDIS_DB=${REDIS_DB}
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT}
+      - REDIS_SSL_ENABLED=True
+    secrets:
+      - redis_password
+      - secret_key
     ports:
       - "9000:9000"
     networks:
@@ -30,6 +32,12 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+
+secrets:
+  redis_password:
+    file: /home/ubuntu/backend_redis/redis_password
+  secret_key:
+    file: /home/ubuntu/backend_redis/django_secret_key
 
 networks:
     app:

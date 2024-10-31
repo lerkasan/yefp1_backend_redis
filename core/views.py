@@ -16,7 +16,7 @@ def test_connection(request):
         r = redis.Redis(
             host=settings.REDIS_HOST,
             port=settings.REDIS_PORT,
-            ssl=True,
+            ssl=settings.REDIS_SSL_ENABLED,
             db=settings.REDIS_DB,
             password=settings.REDIS_PASSWORD
         )
