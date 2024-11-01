@@ -1,4 +1,4 @@
-name: Python package
+name: CI/CD for Backend Redis 
 
 on:
   push:
@@ -22,14 +22,14 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.12"]
+        python-version: ["3.11", "3.12"]
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   #v4.2.2
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b   #v5.3.0
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -43,16 +43,29 @@ jobs:
         run: pytest tests/ --doctest-modules --junitxml=junit/test-results-${{ matrix.python-version }}.xml
 
       - name: Upload pytest test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882   #v4.4.3
         with:
           name: pytest-results-${{ matrix.python-version }}
           path: junit/test-results-${{ matrix.python-version }}.xml
         # Use always() to always run this step to publish test results when there are test failures
         if: ${{ always() }}
 
+  sonar:
+    name: SonarCloud analysis
+    needs: [ test ]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   #v4.2.2
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@383f7e52eae3ab0510c3cb0e7d9d150bbaeab838   #v3.1.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
   build:
     name: Build and Push Docker Image to AWS ECR
-    needs: test
+    needs: [ test, sonar ]
     runs-on: ubuntu-latest
     environment: ${{ vars.ENVIRONMENT }}
     permissions:
@@ -60,13 +73,13 @@ jobs:
       id-token: write       # For GitHub OIDC Token
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   #v4.2.2
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502   # v4.0.2
         with:
           role-to-assume: ${{ secrets.ECR_ROLE }}
-          role-session-name: ${{ github.sha }}-${{ github.run_id}}
+          role-session-name: yefp1-b2-e-${{ github.sha }}-${{ github.run_id}}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
@@ -75,7 +88,7 @@ jobs:
 
       - name: Build docker image
         id: docker_build
-        uses: docker/build-push-action@31159d49c0d4756269a0940a750801a1ea5d7003   # v6.1.0
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75   #v6.9.0
         with:
           load: true
           push: false
@@ -93,7 +106,7 @@ jobs:
         run: dive --ci --lowestEfficiency=0.9 --highestUserWastedPercent=0.15 "${IMAGE_TAG}"
 
       - name: Scan docker image for vulnerabilities with Trivy
-        uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8 # v0.24.0
+        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # v0.28.0
         with:
           image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           format: 'table'
@@ -105,7 +118,7 @@ jobs:
           TRIVY_DB_REPOSITORY: ${{ env.TRIVY_DB_REPO }}
 
       - name: Scan docker image for vulnerabilities with Grype
-        uses: anchore/scan-action@d43cc1dfea6a99ed123bf8f3133f1797c9b44492 # v4.1.0
+        uses: anchore/scan-action@5ed195cc06065322983cae4bb31e2a751feb86fd # v5.2.0
         with:
           image: ${{ steps.login-ecr.outputs.registry }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           output-format: table
@@ -117,13 +130,13 @@ jobs:
         id: docker_push
         env:
           DOCKER_BUILD_RECORD_RETENTION_DAYS: 30
-        uses: docker/build-push-action@31159d49c0d4756269a0940a750801a1ea5d7003   # v6.1.0
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75   # v6.9.0
         with:
           push: true
           tags: ${{ steps.login-ecr.outputs.registry }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20   # v3.5.0
+        uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da   # v3.7.0
 
       - name: Sign the Docker images with GitHub OIDC Token
         env:
@@ -134,7 +147,7 @@ jobs:
 
   deploy:
     name: Deploy to AWS EC2
-    needs: [ test, build ]
+    needs: [ test, sonar, build ]
     runs-on: ubuntu-latest
     environment: ${{ vars.ENVIRONMENT }}
     permissions:
@@ -142,10 +155,10 @@ jobs:
       contents: read
     steps:
       - name: Get AWS Credentials
-        uses: aws-actions/configure-aws-credentials@5fd3084fc36e372ff1fff382a39b10d03659f355   # v2.2.0
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502   # v4.0.2
         with:
           role-to-assume: ${{ secrets.CODE_DEPLOY_ROLE }}
-          role-session-name: GitHub-Action-CodeDeploy-Role
+          role-session-name: yefp1-b2-c-${{ github.sha }}-${{ github.run_id}}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Check for other ongoing deployment
