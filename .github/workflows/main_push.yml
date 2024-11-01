@@ -1,0 +1,194 @@
+name: Python package
+
+on:
+  push:
+    branches:
+      - main
+  
+  # for debugging purposes
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }} 
+  IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+  APPLICATION_NAME: ${{ vars.APPLICATION_NAME }}
+  DEPLOYMENT_GROUP: ${{ vars.DEPLOYMENT_GROUP }}
+  HEALTH_CHECK_URL: ${{ vars.HEALTH_CHECK_URL }}
+  TRIVY_DB_REPO: 'public.ecr.aws/aquasecurity/trivy-db:2'
+
+jobs:
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip3 install -r requirements.txt
+          pip3 install pytest
+
+      - name: Test with pytest
+        run: pytest tests/ --doctest-modules --junitxml=junit/test-results-${{ matrix.python-version }}.xml
+
+      - name: Upload pytest test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results-${{ matrix.python-version }}
+          path: junit/test-results-${{ matrix.python-version }}.xml
+        # Use always() to always run this step to publish test results when there are test failures
+        if: ${{ always() }}
+
+  build:
+    name: Build and Push Docker Image to AWS ECR
+    needs: test
+    runs-on: ubuntu-latest
+    environment: ${{ vars.ENVIRONMENT }}
+    permissions:
+      contents: read
+      id-token: write       # For GitHub OIDC Token
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502   # v4.0.2
+        with:
+          role-to-assume: ${{ secrets.ECR_ROLE }}
+          role-session-name: ${{ github.sha }}-${{ github.run_id}}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076   # v2.0.1
+
+      - name: Build docker image
+        id: docker_build
+        uses: docker/build-push-action@31159d49c0d4756269a0940a750801a1ea5d7003   # v6.1.0
+        with:
+          load: true
+          push: false
+          tags: ${{ steps.login-ecr.outputs.registry }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+      - name: Install Dive
+        run: |
+          DIVE_VERSION=$(curl -sL "https://api.github.com/repos/wagoodman/dive/releases/latest" | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+          curl -OL https://github.com/wagoodman/dive/releases/download/v${DIVE_VERSION}/dive_${DIVE_VERSION}_linux_amd64.deb
+          sudo apt install ./dive_${DIVE_VERSION}_linux_amd64.deb
+
+      - name: Check docker image size efficiency
+        env:
+          IMAGE_TAG: ${{ steps.login-ecr.outputs.registry }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        run: dive --ci --lowestEfficiency=0.9 --highestUserWastedPercent=0.15 "${IMAGE_TAG}"
+
+      - name: Scan docker image for vulnerabilities with Trivy
+        uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8 # v0.24.0
+        with:
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: false
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+        env:
+          TRIVY_DB_REPOSITORY: ${{ env.TRIVY_DB_REPO }}
+
+      - name: Scan docker image for vulnerabilities with Grype
+        uses: anchore/scan-action@d43cc1dfea6a99ed123bf8f3133f1797c9b44492 # v4.1.0
+        with:
+          image: ${{ steps.login-ecr.outputs.registry }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          output-format: table
+          fail-build: true
+          only-fixed: false
+          severity-cutoff: medium
+
+      - name: Push docker image
+        id: docker_push
+        env:
+          DOCKER_BUILD_RECORD_RETENTION_DAYS: 30
+        uses: docker/build-push-action@31159d49c0d4756269a0940a750801a1ea5d7003   # v6.1.0
+        with:
+          push: true
+          tags: ${{ steps.login-ecr.outputs.registry }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20   # v3.5.0
+
+      - name: Sign the Docker images with GitHub OIDC Token
+        env:
+          DIGEST: ${{ steps.docker_push.outputs.digest }}
+          REPO_IMAGE: ${{ steps.login-ecr.outputs.registry }}/${{ env.IMAGE_NAME }}
+          TAGS: ${{ github.sha }}
+        run: cosign sign --key awskms:///${{ secrets.KEY_ALIAS_ARN }} --yes "${REPO_IMAGE}:${TAGS}@${DIGEST}"
+
+  deploy:
+    name: Deploy to AWS EC2
+    needs: [ test, build ]
+    runs-on: ubuntu-latest
+    environment: ${{ vars.ENVIRONMENT }}
+    permissions:
+      id-token: write  # GitHub OIDC Token
+      contents: read
+    steps:
+      - name: Get AWS Credentials
+        uses: aws-actions/configure-aws-credentials@5fd3084fc36e372ff1fff382a39b10d03659f355   # v2.2.0
+        with:
+          role-to-assume: ${{ secrets.CODE_DEPLOY_ROLE }}
+          role-session-name: GitHub-Action-CodeDeploy-Role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Check for other ongoing deployment
+        id: deployment_in_progress
+        run: |
+          deployments=$(aws deploy list-deployments --application-name ${{ env.APPLICATION_NAME }} --deployment-group-name ${{ env.DEPLOYMENT_GROUP }} --region ${{ env.AWS_REGION }} --include-only-statuses "InProgress" --output json)
+          count=$(echo $deployments | jq -r '.deployments | length')
+          in_progress_deployment_id=$(echo $deployments | jq -r '.deployments[0]')
+          echo count=$count >> "$GITHUB_OUTPUT"
+          echo in_progress_deployment_id=$in_progress_deployment_id >> "$GITHUB_OUTPUT"
+          echo count=$count
+          echo in_progress_deployment_id=$in_progress_deployment_id
+
+      - name: Wait for other ongoing deployment to finish
+        if: steps.deployment_in_progress.outputs.count > 0
+        run: |
+          echo ${{ steps.deployment_in_progress.outputs.count }}
+          echo ${{ steps.deployment_in_progress.outputs.in_progress_deployment_id }}
+          aws deploy wait deployment-successful --deployment-id ${{ steps.deployment_in_progress.outputs.in_progress_deployment_id }}
+
+      - name: Create Deployment at AWS CodeDeploy
+        id: codedeploy
+        run: |
+          deployment_id=$(aws deploy create-deployment --application-name ${{ env.APPLICATION_NAME }} --deployment-group-name ${{ env.DEPLOYMENT_GROUP }} --github-location repository=$GITHUB_REPOSITORY,commitId=$GITHUB_SHA --ignore-application-stop-failures --query "deploymentId" --output text --no-paginate)
+          echo deployment_id=$deployment_id >> "$GITHUB_OUTPUT"
+
+      - name: Wait and verify whether the CodeDeploy deployment was successful
+        run: |
+          aws deploy wait deployment-successful --deployment-id ${{ steps.codedeploy.outputs.deployment_id }}
+
+      - name: App server health check
+        run: |
+          NUMBER_OF_ATTEMPTS=10
+          SLEEP_TIME=5
+          for i in $(seq 1 $NUMBER_OF_ATTEMPTS);
+          do
+            HTTP_CODE=$(curl --insecure --write-out '%{http_code}' -o /dev/null -m 10 -q -s $HEALTH_CHECK_URL)
+            if [ "$HTTP_CODE" == "200" ]; then
+              echo "App server is running."
+              exit 0
+            fi
+            echo "Attempt to curl endpoint returned HTTP Code $HTTP_CODE. Backing off and retrying."
+            sleep $SLEEP_TIME
+          done
+          echo "App server did not respond after expected time. Failing."
+          exit 1
