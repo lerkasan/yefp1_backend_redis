@@ -101,7 +101,7 @@ jobs:
         with:
           args: >
             -Dsonar.organization=${{ github.repository_owner }}
-            -Dsonar.projectKey=${{ github.repository_owner }}_${{ vars.APPLICATION_NAME }}
+            -Dsonar.projectKey=${{ github.repository_owner }}_yefp1_backend_redis
             -Dsonar.python.version=${{ matrix.python-version }}
             -Dsonar.python.coverage.reportPaths=coverage*.xml
             -Dsonar.test.exclusions=tests/**
