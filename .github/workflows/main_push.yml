@@ -109,6 +109,7 @@ jobs:
             -Dsonar.verbose=true
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          APPLICATION_NAME: ${{ env.APPLICATION_NAME }}
 
   build:
     name: Build and Push Docker Image to AWS ECR
