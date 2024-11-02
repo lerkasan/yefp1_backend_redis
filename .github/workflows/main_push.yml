@@ -101,7 +101,7 @@ jobs:
         with:
           args: >
             -Dsonar.organization=${{ github.repository_owner }}
-            -Dsonar.projectKey=${{ github.repository_owner }}_${{ env.APPLICATION_NAME }}
+            -Dsonar.projectKey=${{ github.repository_owner }}_${{ vars.APPLICATION_NAME }}
             -Dsonar.python.version=${{ matrix.python-version }}
             -Dsonar.python.coverage.reportPaths=coverage*.xml
             -Dsonar.test.exclusions=tests/**
@@ -109,7 +109,6 @@ jobs:
             -Dsonar.verbose=true
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          APPLICATION_NAME: ${{ env.APPLICATION_NAME }}
 
   build:
     name: Build and Push Docker Image to AWS ECR
