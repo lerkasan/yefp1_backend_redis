@@ -133,55 +133,55 @@
         "collect_list": [
           {
             "file_path": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log",
-            "log_group_name": "boanerges_/ec2/CloudWatchAgentLog/",
+            "log_group_name": "yefp1/ec2/CloudWatchAgentLog/",
             "log_stream_name": "{instance_id}_{hostname}",
             "timezone": "Local"
           },
           {
             "file_path": "/var/log/messages",
-            "log_group_name": "boanerges_/ec2/var/log/messages",
+            "log_group_name": "yefp1/ec2/var/log/messages",
             "log_stream_name": "{instance_id}_{hostname}",
             "timezone": "Local"
           },
           {
             "file_path": "/var/log/syslog",
-            "log_group_name": "boanerges_/ec2/var/log/syslog",
+            "log_group_name": "yefp1/ec2/var/log/syslog",
             "log_stream_name": "{instance_id}_{hostname}",
             "timezone": "Local"
           },
           {
             "file_path": "/var/log/auth.log",
-            "log_group_name": "boanerges_/ec2/var/log/auth.log",
+            "log_group_name": "yefp1/ec2/var/log/auth.log",
             "log_stream_name": "{instance_id}_{hostname}",
             "timezone": "Local"
           },
           {
             "file_path": "/var/log/kern.log",
-            "log_group_name": "boanerges_/ec2/var/log/kern.log",
+            "log_group_name": "yefp1/ec2/var/log/kern.log",
             "log_stream_name": "{instance_id}_{hostname}",
             "timezone": "Local"
           },
           {
             "file_path": "/var/log/secure",
-            "log_group_name": "boanerges_/ec2/var/log/secure",
+            "log_group_name": "yefp1_/ec2/var/log/secure",
             "log_stream_name": "{instance_id}_{hostname}",
             "timezone": "Local"
           },
           {
             "file_path": "/var/log/cloud-init-output.log",
-            "log_group_name": "boanerges_/var/log/cloud-init-output.log",
+            "log_group_name": "yefp1/var/log/cloud-init-output.log",
             "log_stream_name": "{instance_id}_{hostname}",
             "timezone": "Local"
           },
           {
             "file_path": "/var/log/aws/codedeploy-agent/codedeploy-agent.log",
-            "log_group_name": "boanerges_/var/log/aws/codedeploy-agent/codedeploy-agent.log",
+            "log_group_name": "yefp1/var/log/aws/codedeploy-agent/codedeploy-agent.log",
             "log_stream_name": "{instance_id}_{hostname}",
             "timezone": "Local"
           },
           {
             "file_path": "/opt/codedeploy-agent/deployment-root/deployment-logs/codedeploy-agent-deployments.log",
-            "log_group_name": "boanerges_/opt/codedeploy-agent/deployment-root/deployment-logs/codedeploy-agent-deployments.log",
+            "log_group_name": "yefp1/opt/codedeploy-agent/deployment-root/deployment-logs/codedeploy-agent-deployments.log",
             "log_stream_name": "{instance_id}_{hostname}",
             "timezone": "Local"
           }
