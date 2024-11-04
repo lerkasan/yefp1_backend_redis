@@ -8,10 +8,12 @@ APP_DIR="/home/ubuntu/${APPLICATION_NAME}"
 
 DEBUG=False
 
-AWS_REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
+TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+
+AWS_REGION=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/placement/region)
 export AWS_REGION="${AWS_REGION:-us-east-1}"
 
-AWS_ACCOUNT_ID=$(curl -s http://169.254.169.254/latest/dynamic/instance-identity/document | jq -r .accountId)
+AWS_ACCOUNT_ID=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/dynamic/instance-identity/document | jq -r .accountId)
 
 DEPLOYMENT_ID=$(aws deploy list-deployments --application-name "${PROJECT_NAME}_${APPLICATION_NAME}" --deployment-group-name "$DEPLOYMENT_GROUP_NAME" --region "$AWS_REGION" --include-only-statuses "InProgress" --query "deployments[0]" --output text --no-paginate)
 
