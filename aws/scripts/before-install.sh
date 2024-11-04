@@ -10,5 +10,3 @@ fi
 
 mkdir -vp "$APP_DIR"
 chown -R ubuntu:ubuntu "$APP_DIR"
-
-# docker system prune -a

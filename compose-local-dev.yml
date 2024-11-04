@@ -1,7 +1,7 @@
 services:
   backend_redis:
     # image: ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/yefp1/backend-redis:${BACKEND_REDIS_TAG:-latest}
-    # container_name: backend_redis
+    container_name: backend_redis
     build: 
       context: .
     restart: unless-stopped
